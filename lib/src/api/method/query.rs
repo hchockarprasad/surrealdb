@@ -15,7 +15,9 @@ use crate::sql::Strand;
 use crate::sql::Value;
 use indexmap::IndexMap;
 use serde::de::DeserializeOwned;
+use serde::ser::SerializeSeq;
 use serde::Serialize;
+use serde::Serializer;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::future::Future;
@@ -290,6 +292,19 @@ impl Response {
 	/// # }
 	pub fn num_statements(&self) -> usize {
 		self.0.len()
+	}
+}
+
+impl Serialize for Response {
+	fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+	where
+		S: Serializer,
+	{
+		let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+		for (_, v) in &self.0 {
+			seq.serialize_element(v)?;
+		}
+		seq.end()
 	}
 }
 
