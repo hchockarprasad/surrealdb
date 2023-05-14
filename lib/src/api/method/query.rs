@@ -302,10 +302,14 @@ impl Serialize for Response {
 	{
 		let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
 		for (_, v) in &self.0 {
-			let res = v.as_ref().map(|x| {
-				x.iter().map(|y| y.clone().into_json()).collect::<Vec<serde_json::Value>>()
-			});
-			seq.serialize_element(&res)?;
+			let json_arr = |values: &Vec<Value>| {
+				let mut out = Vec::with_capacity(values.len());
+				for val in values {
+					out.push(val.clone().into_json());
+				}
+				out
+			};
+			seq.serialize_element(&v.as_ref().map(json_arr))?;
 		}
 		seq.end()
 	}
@@ -546,5 +550,23 @@ mod tests {
 		assert_eq!(value, 2);
 		let value: Value = response.take(4).unwrap();
 		assert_eq!(value, vec![Value::from(3)].into());
+	}
+
+	#[test]
+	fn test_serialize() {
+		let response = Response(to_map(vec![
+			Ok(vec!["Hello".into()]),
+			Ok(vec![1.into()]),
+			Ok(vec![2.into()]),
+			Err(Error::ConnectionUninitialised.into()),
+			Ok(vec![3.into()]),
+			Ok(vec![4.into()]),
+			Ok(vec![5.into()]),
+			Err(Error::AuthNotSupported.into()),
+			Ok(vec![6.into()]),
+			Ok(vec![7.into()]),
+		]));
+		let s = serde_json::to_string(&response).unwrap();
+		println!("{s}");
 	}
 }
