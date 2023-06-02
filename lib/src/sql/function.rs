@@ -181,6 +181,10 @@ impl Function {
 						},
 					});
 				}
+				let perms =
+					val.run_if.unwrap_or_default().compute(ctx, opt, txn, doc).await?.is_truthy();
+				let opt = &opt.perms(!perms);
+
 				// Compute the function arguments
 				let a = try_join_all(x.iter().map(|v| v.compute(ctx, opt, txn, doc))).await?;
 				// Duplicate context
