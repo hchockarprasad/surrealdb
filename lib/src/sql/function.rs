@@ -161,6 +161,17 @@ impl Function {
 					// Get the function definition
 					run.get_fc(opt.ns(), opt.db(), s).await?
 				};
+
+				// Skip permission checks for function if run_if check is successful.
+				let mut run_access = false;
+				if let Some(run_if) = val.run_if {
+					if !run_if.compute(ctx, opt, txn, doc).await?.is_truthy() {
+						return Ok(Value::Null);
+					}
+					run_access = true;
+				}
+				let opt = &opt.new_with_perms(!run_access);
+
 				// Check the function arguments
 				if x.len() != val.args.len() {
 					return Err(Error::InvalidArguments {
@@ -171,6 +182,7 @@ impl Function {
 						},
 					});
 				}
+
 				// Compute the function arguments
 				let a = try_join_all(x.iter().map(|v| v.compute(ctx, opt, txn, doc))).await?;
 				// Duplicate context

@@ -263,6 +263,7 @@ pub struct DefineFunctionStatement {
 	pub name: Ident,
 	pub args: Vec<(Ident, Kind)>,
 	pub block: Block,
+	pub run_if: Option<Value>,
 }
 
 impl DefineFunctionStatement {
@@ -300,7 +301,11 @@ impl fmt::Display for DefineFunctionStatement {
 			write!(f, "${name}: {kind}")?;
 		}
 		f.write_str(") ")?;
-		Display::fmt(&self.block, f)
+		Display::fmt(&self.block, f)?;
+		if let Some(run_if) = &self.run_if {
+			write!(f, " RUN IF {}", run_if)?;
+		};
+		Ok(())
 	}
 }
 
@@ -327,14 +332,24 @@ fn function(i: &str) -> IResult<&str, DefineFunctionStatement> {
 	let (i, _) = char(')')(i)?;
 	let (i, _) = mightbespace(i)?;
 	let (i, block) = block(i)?;
+	let (i, _) = mightbespace(i)?;
+	let (i, run_if) = opt(run_if)(i)?;
 	Ok((
 		i,
 		DefineFunctionStatement {
 			name,
 			args,
 			block,
+			run_if,
 		},
 	))
+}
+
+fn run_if(i: &str) -> IResult<&str, Value> {
+	let (i, _) = tag_no_case("RUN IF")(i)?;
+	let (i, _) = shouldbespace(i)?;
+	let (i, value) = value(i)?;
+	Ok((i, value))
 }
 
 // --------------------------------------------------
