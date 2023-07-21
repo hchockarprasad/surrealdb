@@ -39,6 +39,7 @@ impl_module_def!(
 	"max" => run,
 	"min" => run,
 	"pop" => run,
+	"pull" => run,
 	"push" => run,
 	"prepend" => run,
 	"remove" => run,

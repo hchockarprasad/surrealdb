@@ -312,6 +312,7 @@ fn function_array(i: &str) -> IResult<&str, &str> {
 			tag("min"),
 			tag("pop"),
 			tag("prepend"),
+			tag("pull"),
 			tag("push"),
 		)),
 		alt((

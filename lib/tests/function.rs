@@ -3,7 +3,7 @@ use parse::Parse;
 use surrealdb::dbs::Session;
 use surrealdb::err::Error;
 use surrealdb::kvs::Datastore;
-use surrealdb::sql::{Number, Value};
+use surrealdb::sql::{Array, Number, Value};
 
 async fn test_queries(sql: &str, desired_responses: &[&str]) -> Result<(), Error> {
 	let db = Datastore::new("memory").await?;
@@ -915,6 +915,33 @@ async fn function_array_prepend() -> Result<(), Error> {
 	//
 	let tmp = res.remove(0).result?;
 	let val = Value::parse("[[2,3],1,2]");
+	assert_eq!(tmp, val);
+	//
+	Ok(())
+}
+
+#[tokio::test]
+async fn function_array_pull() -> Result<(), Error> {
+	let sql = r#"
+		RETURN array::pull(["hello", "world"], "hello");
+		RETURN array::pull(["hello", NONE, "world"], NONE);
+		RETURN array::pull([], "hello");
+	"#;
+	let dbs = Datastore::new("memory").await?;
+	let ses = Session::for_kv().with_ns("test").with_db("test");
+	let res = &mut dbs.execute(sql, &ses, None).await?;
+	assert_eq!(res.len(), 3);
+	//
+	let tmp = res.remove(0).result?;
+	let val = Value::Array(vec!["world"].into());
+	assert_eq!(tmp, val);
+	//
+	let tmp = res.remove(0).result?;
+	let val = Value::Array(vec!["hello", "world"].into());
+	assert_eq!(tmp, val);
+	//
+	let tmp = res.remove(0).result?;
+	let val = Value::from(Array::new());
 	assert_eq!(tmp, val);
 	//
 	Ok(())

@@ -180,6 +180,7 @@
 "array::min("
 "array::pop("
 "array::prepend("
+"array::pull("
 "array::push("
 "array::remove("
 "array::reverse("

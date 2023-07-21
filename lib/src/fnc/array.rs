@@ -296,6 +296,11 @@ pub fn prepend((mut array, value): (Array, Value)) -> Result<Value, Error> {
 	Ok(array.into())
 }
 
+pub fn pull((mut array, value): (Array, Value)) -> Result<Value, Error> {
+	array.retain(|v| v != &value);
+	Ok(array.into())
+}
+
 pub fn push((mut array, value): (Array, Value)) -> Result<Value, Error> {
 	array.push(value);
 	Ok(array.into())
