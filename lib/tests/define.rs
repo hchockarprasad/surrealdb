@@ -59,6 +59,40 @@ async fn define_statement_database() -> Result<(), Error> {
 }
 
 #[tokio::test]
+async fn define_statement_permission() -> Result<(), Error> {
+	let sql = "
+		DEFINE PERMISSION FOR FUNCTION test ALLOW $scope = user;
+		INFO FOR DB;
+	";
+	let dbs = Datastore::new("memory").await?;
+	let ses = Session::for_kv().with_ns("test").with_db("test");
+	let res = &mut dbs.execute(sql, &ses, None).await?;
+	assert_eq!(res.len(), 2);
+	//
+	let tmp = res.remove(0).result;
+	assert!(tmp.is_ok());
+	//
+	let tmp = res.remove(0).result?;
+	let val = Value::parse(
+		"{
+			analyzers: {},
+			logins: {},
+			tokens: {},
+			functions: {},
+			params: {},
+			scopes: {},
+			params: {},
+			scopes: {},
+			tables: {},
+			permissions: { test: 'DEFINE PERMISSION FOR FUNCTION test ALLOW $scope = user' },
+		}",
+	);
+	assert_eq!(tmp, val);
+	//
+	Ok(())
+}
+
+#[tokio::test]
 async fn define_statement_function() -> Result<(), Error> {
 	let sql = "
 		DEFINE FUNCTION fn::test($first: string, $last: string) {

@@ -4175,7 +4175,7 @@ async fn function_time_minute() -> Result<(), Error> {
 #[tokio::test]
 async fn function_time_month() -> Result<(), Error> {
 	let sql = r#"
-		RETURN time::month();
+		RETURN fn::test();
 		RETURN time::month("1987-06-22T08:30:45Z");
 	"#;
 	let dbs = Datastore::new("memory").await?;

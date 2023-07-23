@@ -15,6 +15,7 @@ use crate::sql::escape::quote_str;
 use crate::sql::filter::{filters, Filter};
 use crate::sql::fmt::is_pretty;
 use crate::sql::fmt::pretty_indent;
+use crate::sql::function::function_names;
 use crate::sql::ident::{ident, Ident};
 use crate::sql::idiom;
 use crate::sql::idiom::{Idiom, Idioms};
@@ -48,6 +49,7 @@ use std::fmt::{self, Display, Write};
 pub enum DefineStatement {
 	Namespace(DefineNamespaceStatement),
 	Database(DefineDatabaseStatement),
+	Permission(DefinePermissionStatement),
 	Function(DefineFunctionStatement),
 	Analyzer(DefineAnalyzerStatement),
 	Login(DefineLoginStatement),
@@ -72,6 +74,7 @@ impl DefineStatement {
 		match self {
 			Self::Namespace(ref v) => v.compute(ctx, opt, txn, doc).await,
 			Self::Database(ref v) => v.compute(ctx, opt, txn, doc).await,
+			Self::Permission(ref v) => v.compute(ctx, opt, txn, doc).await,
 			Self::Function(ref v) => v.compute(ctx, opt, txn, doc).await,
 			Self::Login(ref v) => v.compute(ctx, opt, txn, doc).await,
 			Self::Token(ref v) => v.compute(ctx, opt, txn, doc).await,
@@ -91,6 +94,7 @@ impl Display for DefineStatement {
 		match self {
 			Self::Namespace(v) => Display::fmt(v, f),
 			Self::Database(v) => Display::fmt(v, f),
+			Self::Permission(v) => Display::fmt(v, f),
 			Self::Function(v) => Display::fmt(v, f),
 			Self::Login(v) => Display::fmt(v, f),
 			Self::Token(v) => Display::fmt(v, f),
@@ -109,6 +113,7 @@ pub fn define(i: &str) -> IResult<&str, DefineStatement> {
 	alt((
 		map(namespace, DefineStatement::Namespace),
 		map(database, DefineStatement::Database),
+		map(permission, DefineStatement::Permission),
 		map(function, DefineStatement::Function),
 		map(login, DefineStatement::Login),
 		map(token, DefineStatement::Token),
@@ -252,6 +257,70 @@ pub enum DefineDatabaseOption {
 
 fn database_opts(i: &str) -> IResult<&str, DefineDatabaseOption> {
 	database_changefeed(i)
+}
+
+// --------------------------------------------------
+// --------------------------------------------------
+// --------------------------------------------------
+
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize, Store, Hash)]
+pub struct DefinePermissionStatement {
+	pub what: String,
+	pub permission: Value,
+}
+
+impl DefinePermissionStatement {
+	/// Process this type returning a computed simple Value
+	pub(crate) async fn compute(
+		&self,
+		_ctx: &Context<'_>,
+		opt: &Options,
+		txn: &Transaction,
+		_doc: Option<&CursorDoc<'_>>,
+	) -> Result<Value, Error> {
+		// Selected DB?
+		opt.needs(Level::Db)?;
+		// Allowed to run?
+		opt.check(Level::Db)?;
+		// Claim transaction
+		let mut run = txn.lock().await;
+		// Process the statement
+		let key = crate::key::database::pm::new(opt.ns(), opt.db(), &self.what);
+		run.add_ns(opt.ns(), opt.strict).await?;
+		run.add_db(opt.ns(), opt.db(), opt.strict).await?;
+		run.set(key, self).await?;
+		// Ok all good
+		Ok(Value::None)
+	}
+}
+
+impl Display for DefinePermissionStatement {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "DEFINE PERMISSION FOR FUNCTION {} ALLOW {}", self.what, self.permission)
+	}
+}
+
+fn permission(i: &str) -> IResult<&str, DefinePermissionStatement> {
+	let (i, _) = tag_no_case("DEFINE")(i)?;
+	let (i, _) = shouldbespace(i)?;
+	let (i, _) = tag_no_case("PERMISSION")(i)?;
+	let (i, _) = shouldbespace(i)?;
+	let (i, _) = tag_no_case("FOR")(i)?;
+	let (i, _) = shouldbespace(i)?;
+	let (i, _) = tag_no_case("FUNCTION")(i)?;
+	let (i, _) = shouldbespace(i)?;
+	let (i, what) = alt((map(function_names, String::from), map(ident, |x| x.to_string())))(i)?;
+	let (i, _) = shouldbespace(i)?;
+	let (i, _) = tag_no_case("ALLOW")(i)?;
+	let (i, _) = shouldbespace(i)?;
+	let (i, permission) = value(i)?;
+	Ok((
+		i,
+		DefinePermissionStatement {
+			what,
+			permission,
+		},
+	))
 }
 
 // --------------------------------------------------
@@ -1489,6 +1558,19 @@ mod tests {
 
 		let serialized = out.to_vec();
 		let deserializled = DefineTableStatement::try_from(&serialized).unwrap();
+		assert_eq!(out, deserializled);
+	}
+
+	#[test]
+	fn define_permission() {
+		let sql = "DEFINE PERMISSION FOR FUNCTION test ALLOW $scope = 'user'";
+		let res = permission(sql);
+		assert!(res.is_ok());
+		let out = res.unwrap().1;
+		assert_eq!(sql, format!("{}", out));
+
+		let serialized = out.to_vec();
+		let deserializled = DefinePermissionStatement::try_from(&serialized).unwrap();
 		assert_eq!(out, deserializled);
 	}
 }

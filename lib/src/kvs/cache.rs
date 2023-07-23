@@ -1,4 +1,5 @@
 use crate::kvs::kv::Key;
+use crate::sql::statements::define::DefinePermissionStatement;
 use crate::sql::statements::DefineAnalyzerStatement;
 use crate::sql::statements::DefineDatabaseStatement;
 use crate::sql::statements::DefineEventStatement;
@@ -27,6 +28,7 @@ pub enum Entry {
 	Dls(Arc<[DefineLoginStatement]>),
 	Dts(Arc<[DefineTokenStatement]>),
 	Evs(Arc<[DefineEventStatement]>),
+	Pms(Arc<[DefinePermissionStatement]>),
 	Fcs(Arc<[DefineFunctionStatement]>),
 	Fds(Arc<[DefineFieldStatement]>),
 	Fts(Arc<[DefineTableStatement]>),

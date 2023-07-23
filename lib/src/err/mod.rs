@@ -272,6 +272,12 @@ pub enum Error {
 		value: String,
 	},
 
+	/// The requested permission does not exist
+	#[error("The param '${value}' does not exist")]
+	PmNotFound {
+		value: String,
+	},
+
 	/// The requested table does not exist
 	#[error("The table '{value}' does not exist")]
 	TbNotFound {

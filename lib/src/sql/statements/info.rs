@@ -133,6 +133,12 @@ impl InfoStatement {
 					tmp.insert(v.name.to_string(), v.to_string().into());
 				}
 				res.insert("analyzers".to_owned(), tmp.into());
+				// Process the permissions
+				let mut tmp = Object::default();
+				for v in run.all_pm(opt.ns(), opt.db()).await?.iter() {
+					tmp.insert(v.what.to_owned(), v.to_string().into());
+				}
+				res.insert("permissions".to_owned(), tmp.into());
 				// Ok all good
 				Value::from(res).ok()
 			}

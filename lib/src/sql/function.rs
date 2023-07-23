@@ -148,12 +148,49 @@ impl Function {
 		// Process the function type
 		match self {
 			Self::Normal(s, x) => {
+				if opt.perms && opt.auth.perms() {
+					// Get function permission
+					let permission = {
+						// Claim transaction
+						let mut run = txn.lock().await;
+						// Get the function permission
+						run.get_pm(opt.ns(), opt.db(), s).await
+					};
+
+					// Check permission if exist
+					if let Ok(pm) = permission {
+						if !pm.permission.compute(ctx, opt, txn, doc).await?.is_truthy() {
+							return Ok(Value::None);
+						}
+					}
+				}
+
 				// Compute the function arguments
 				let a = try_join_all(x.iter().map(|v| v.compute(ctx, opt, txn, doc))).await?;
 				// Run the normal function
 				fnc::run(ctx, txn, doc, s, a).await
 			}
 			Self::Custom(s, x) => {
+				let mut perms = opt.perms && opt.auth.perms();
+				if perms {
+					// Get function permission
+					let permission = {
+						// Claim transaction
+						let mut run = txn.lock().await;
+						// Get the function permission
+						run.get_pm(opt.ns(), opt.db(), s).await
+					};
+
+					// Check permission if exist
+					if let Ok(pm) = permission {
+						if !pm.permission.compute(ctx, opt, txn, doc).await?.is_truthy() {
+							return Ok(Value::None);
+						}
+						perms = false;
+					}
+				}
+				let opt = &opt.new_with_perms(perms);
+
 				// Get the function definition
 				let val = {
 					// Claim transaction

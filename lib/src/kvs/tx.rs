@@ -12,6 +12,7 @@ use crate::sql;
 use crate::sql::paths::EDGE;
 use crate::sql::paths::IN;
 use crate::sql::paths::OUT;
+use crate::sql::statements::define::DefinePermissionStatement;
 use crate::sql::thing::Thing;
 use crate::sql::value::Value;
 use crate::sql::Strand;
@@ -1140,6 +1141,29 @@ impl Transaction {
 		})
 	}
 
+	/// Retrieve all permissions for a specific database.
+	pub async fn all_pm(
+		&mut self,
+		ns: &str,
+		db: &str,
+	) -> Result<Arc<[DefinePermissionStatement]>, Error> {
+		let key = crate::key::database::pm::prefix(ns, db);
+		Ok(if let Some(e) = self.cache.get(&key) {
+			if let Entry::Pms(v) = e {
+				v
+			} else {
+				unreachable!();
+			}
+		} else {
+			let beg = crate::key::database::pm::prefix(ns, db);
+			let end = crate::key::database::pm::suffix(ns, db);
+			let val = self.getr(beg..end, u32::MAX).await?;
+			let val = val.convert().into();
+			self.cache.set(key, Entry::Pms(Arc::clone(&val)));
+			val
+		})
+	}
+
 	/// Retrieve all function definitions for a specific database.
 	pub async fn all_fc(
 		&mut self,
@@ -1570,6 +1594,20 @@ impl Transaction {
 		let key = crate::key::database::pa::new(ns, db, pa);
 		let val = self.get(key).await?.ok_or(Error::PaNotFound {
 			value: pa.to_owned(),
+		})?;
+		Ok(val.into())
+	}
+
+	/// Retrieve a specific permission definition.
+	pub async fn get_pm(
+		&mut self,
+		ns: &str,
+		db: &str,
+		pm: &str,
+	) -> Result<DefinePermissionStatement, Error> {
+		let key = crate::key::database::pm::new(ns, db, pm);
+		let val = self.get(key).await?.ok_or(Error::PmNotFound {
+			value: pm.to_owned(),
 		})?;
 		Ok(val.into())
 	}
