@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used)]
 
 use surrealdb_core::iam::Level;
+use surrealdb_core::kvs::Datastore;
 use surrealdb_core::syn;
 use surrealdb_types::{Array, RecordId, Value};
 
@@ -11,6 +12,25 @@ use surrealdb_core::dbs::Session;
 use surrealdb_core::iam::Role;
 
 use crate::helpers::skip_ok;
+
+#[tokio::test]
+async fn test_create() -> Result<()> {
+	let dbs = Datastore::new("rocksdb://test.db").await?;
+
+	let ses = Session::owner().with_ns("test").with_db("test");
+	dbs.execute(&format!("DEFINE NS test"), &Session::owner(), None).await?;
+	dbs.execute(&format!("DEFINE DB test"), &ses, None).await?;
+
+	let sql = "
+		DEFINE TABLE user SCHEMAFULL PERMISSIONS FULL;
+		CREATE user:test;
+	";
+
+	let res = &mut dbs.execute(sql, &ses, None).await?;
+	let tmp = res.remove(0).result?;
+	println!("{tmp:?}");
+	Ok(())
+}
 
 #[tokio::test]
 async fn create_or_insert_with_permissions() -> Result<()> {
